@@ -6,60 +6,60 @@ ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ) {}
 
 bool Writer::is_closed() const
 {
-  // Your code here.
-  return {};
+  return writer_closed;
 }
 
 void Writer::push( string data )
 {
-  // Your code here.
-  (void)data;
-  return;
+  for ( auto& ch : data ) {
+    if ( buffer.size() == capacity_ ) {
+      break;
+    }
+    buffer.push_back( ch );
+    pushed_count++;
+  }
 }
 
 void Writer::close()
 {
-  // Your code here.
+  writer_closed = true;
 }
 
 uint64_t Writer::available_capacity() const
 {
-  // Your code here.
-  return {};
+  return capacity_ - buffer.size();
 }
 
 uint64_t Writer::bytes_pushed() const
 {
-  // Your code here.
-  return {};
+  return pushed_count;
 }
 
 bool Reader::is_finished() const
 {
-  // Your code here.
-  return {};
+  return writer_closed && buffer.empty();
 }
 
 uint64_t Reader::bytes_popped() const
 {
-  // Your code here.
-  return {};
+  return popped_count;
 }
 
 string_view Reader::peek() const
 {
-  // Your code here.
-  return {};
+  return string_view( &buffer.front(), 1 );
 }
 
 void Reader::pop( uint64_t len )
 {
-  // Your code here.
-  (void)len;
+  while ( len > 0 && !buffer.empty() ) {
+    buffer.pop_front();
+    len--;
+    popped_count++;
+  }
 }
 
 uint64_t Reader::bytes_buffered() const
 {
-  // Your code here.
-  return {};
+  return buffer.size();
 }

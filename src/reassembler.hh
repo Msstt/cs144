@@ -42,4 +42,8 @@ public:
 
 private:
   ByteStream output_; // the Reassembler writes to this ByteStream
+  std::map<uint64_t, std::string> reassembler_ {};
+  bool eof_ {};
+  uint64_t eof_index_ {0};
+  uint64_t now_index_ {0};
 };

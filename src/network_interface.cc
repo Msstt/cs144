@@ -21,15 +21,39 @@ NetworkInterface::NetworkInterface( string_view name,
        << ip_address.ip() << "\n";
 }
 
+void NetworkInterface::transmit_IPv4( const InternetDatagram& dgram, EthernetAddress dst) {
+  EthernetFrame frame;
+  frame.header.dst = dst;
+  frame.header.src = ethernet_address_;
+  frame.header.type = 0x800;
+  frame.payload = serialize(dgram);
+  transmit(frame);
+}
+
+void NetworkInterface::transmit_ARP(Address dst) {
+  EthernetFrame frame;
+  frame.header.dst = dst;
+  frame.header.src = ethernet_address_;
+  frame.header.type = 0x806;
+  transmit(frame);
+}
+
+
 //! \param[in] dgram the IPv4 datagram to be sent
 //! \param[in] next_hop the IP address of the interface to send it to (typically a router or default gateway, but
 //! may also be another host if directly connected to the same network as the destination) Note: the Address type
 //! can be converted to a uint32_t (raw 32-bit IP address) by using the Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  // Your code here.
-  (void)dgram;
-  (void)next_hop;
+  ip32 dst = next_hop.ipv4_numeric();
+  if (add_.find(dst) != add_.end()) {
+    transmit_IPv4(dgram, add_[dst]);
+  } else {
+    if (last_.find(dst) == last_.end() || time_ - last_[dst] > 5000) {
+      last_[dst] = time_;
+
+    }
+  }
 }
 
 //! \param[in] frame the incoming Ethernet frame

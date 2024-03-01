@@ -34,6 +34,10 @@ uint64_t TCPSender::consecutive_retransmissions() const
 
 void TCPSender::push( const TransmitFunction& transmit )
 {
+  if (input_.has_error()) {
+    transmit(make_empty_message());
+    return;
+  }
   TCPSenderMessage msg;
   msg.seqno = isn_;
   if (!started) {
@@ -81,6 +85,12 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
+  if (msg.RST) {
+    input_.set_error();
+  }
+  if (input_.has_error()) {
+    return;
+  }
   if (msg.ackno != nullopt) {
     auto ack_no = msg.ackno->unwrap(isn_, ack_index_);
     if (ack_no <= now_index_) {
@@ -97,6 +107,9 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
 {
+  if (input_.has_error()) {
+    return;
+  }
   if (timer_.Increase(ms_since_last_tick, capacity_ > 0 || ack_index_ == 0) && !buffer_.empty()) {
     transmit(buffer_.front());
   }

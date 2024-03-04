@@ -1,10 +1,34 @@
 #pragma once
 
+#include <set>
 #include <queue>
+#include <map>
 
 #include "address.hh"
 #include "ethernet_frame.hh"
 #include "ipv4_datagram.hh"
+
+using ip32 = uint32_t;
+
+class NetworkInterfaceTimer {
+public:
+  NetworkInterfaceTimer(uint64_t expire_ms) : expire_ms_(expire_ms) {}
+
+  void update(ip32 ip_add, EthernetAddress eth_add);
+
+  void tick(size_t ms_since_last_tick);
+
+  bool exist(ip32 ip_add);
+
+  EthernetAddress get(ip32 ip_add);
+
+private:
+  uint64_t expire_ms_;
+  std::map<ip32, uint64_t> last_ {};
+  std::set<std::pair<uint64_t, ip32>> order_ {};
+  std::map<ip32, EthernetAddress> data_ {};
+  uint64_t now_time_ {};
+};
 
 // A "network interface" that connects IP (the internet layer, or network layer)
 // with Ethernet (the network access layer, or link layer).
@@ -81,4 +105,13 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  NetworkInterfaceTimer ARP_ {5000};
+  NetworkInterfaceTimer add_ {30000};
+
+  std::map<ip32, std::queue<InternetDatagram>> need_ {};
+
+  void transmit_IPv4( const InternetDatagram& dgram, EthernetAddress dst);
+
+  void transmit_ARP(ip32 dst, uint16_t opcode);
 };

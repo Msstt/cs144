@@ -11,12 +11,29 @@
 #include <optional>
 #include <queue>
 
+class TCPSenderTimer {
+public:
+  TCPSenderTimer(uint64_t initial_RTO_ms) : initial_RTO_ms_(initial_RTO_ms), RTO_(initial_RTO_ms) {}
+
+  bool Increase( uint64_t ms_since_last_tick, bool flag );
+
+  void SetZero();
+
+  uint64_t GetCount() const { return count_; }
+
+private:
+  uint64_t initial_RTO_ms_;
+  uint64_t count_ {0};
+  uint64_t RTO_;
+  uint64_t time_ {0};
+};
+
 class TCPSender
 {
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms )
+    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_( TCPSenderTimer(initial_RTO_ms) )
   {}
 
   /* Generate an empty TCPSenderMessage */
@@ -48,4 +65,11 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+  TCPSenderTimer timer_;
+  std::deque<TCPSenderMessage> buffer_ {};
+  bool started {false};
+  bool closed {false};
+  uint64_t ack_index_ {0};
+  uint64_t now_index_ {0};
+  uint64_t capacity_ {0};
 };

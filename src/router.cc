@@ -5,6 +5,37 @@
 
 using namespace std;
 
+void Trie::insert(uint32_t route_prefix, uint8_t prefix_length, optional<Address> next_hop, size_t interface_num) {
+    shared_ptr<Node> p = root_;
+    for (uint8_t i = 1; i <= prefix_length; i++) {
+        bool c = route_prefix >> (32 - i) & 1;
+        if (p->next_.find(c) == p->next_.end()) {
+            p->next_[c] = make_shared<Node>();
+        }
+        p = p->next_[c];
+    }
+    p->value_ = make_shared<std::pair<std::optional<Address>, size_t>>(next_hop, interface_num);
+}
+
+std::pair<std::optional<Address>, size_t> Trie::query(uint64_t ip_add) {
+    shared_ptr<Node> p = root_;
+    std::pair<std::optional<Address>, size_t> result;
+    if (p->value_ != nullptr) {
+        result = *p->value_;
+    }
+    for (uint8_t i = 1; i <= 32; i++) {
+        bool c = ip_add >> (32 - i) & 1;
+        if (p->next_.find(c) == p->next_.end()) {
+            break;
+        }
+        p = p->next_[c];
+        if (p->value_ != nullptr) {
+            result = *p->value_;
+        }
+    }
+    return result;
+}
+
 // route_prefix: The "up-to-32-bit" IPv4 address prefix to match the datagram's destination address against
 // prefix_length: For this route to be applicable, how many high-order (most-significant) bits of
 //    the route_prefix will need to match the corresponding bits of the datagram's destination address?
@@ -20,20 +51,7 @@ void Router::add_route( const uint32_t route_prefix,
 //       << static_cast<int>( prefix_length ) << " => " << ( next_hop.has_value() ? next_hop->ip() : "(direct)" )
 //       << " on interface " << interface_num << "\n";
 
-    rule_.push_back(Route{route_prefix, prefix_length, next_hop, interface_num});
-}
-
-size_t Router::find_index(uint64_t ip_add) {
-    int p = - 1;
-    for (size_t i = 0; i < rule_.size(); i++) {
-        int len = 32 - rule_[i].prefix_length_;
-        if (len == 32 || ((ip_add & rule_[i].route_prefix_) >> len) == ((ip_add | rule_[i].route_prefix_) >> len)) {
-            if (p == - 1 || rule_[i].prefix_length_ > rule_[p].prefix_length_) {
-                p = i;
-            }
-        }
-    }
-    return p;
+    trie_.insert(route_prefix, prefix_length, next_hop, interface_num);
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
@@ -46,11 +64,9 @@ void Router::route()
             if (dgram.header.ttl > 1) {
                 dgram.header.ttl -= 1;
                 dgram.header.compute_checksum();
-                auto index = find_index(dgram.header.dst);
-                std::cout << index << std::endl;
-                auto interface_num = rule_[index].interface_num_;
-                if (rule_[index].next_hop_.has_value()) {
-                    interface(interface_num)->send_datagram(dgram, *rule_[index].next_hop_);
+                auto [next_hop, interface_num] = trie_.query(dgram.header.dst);
+                if (next_hop.has_value()) {
+                    interface(interface_num)->send_datagram(dgram, *next_hop);
                 } else {
                     interface(interface_num)->send_datagram(dgram, Address::from_ipv4_numeric(dgram.header.dst));
                 }

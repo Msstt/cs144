@@ -35,4 +35,14 @@ public:
 private:
   // The router's collection of network interfaces
   std::vector<std::shared_ptr<NetworkInterface>> _interfaces {};
+
+  struct Route {
+      uint32_t route_prefix_;
+      uint8_t prefix_length_;
+      std::optional<Address> next_hop_;
+      size_t interface_num_;
+  };
+  std::vector<Route> rule_ {};
+
+  size_t find_index(uint64_t ip_add);
 };

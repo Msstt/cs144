@@ -61,6 +61,7 @@ void NetworkInterface::transmit_IPv4( const InternetDatagram& dgram, EthernetAdd
 }
 
 void NetworkInterface::transmit_ARP(ip32 dst, uint16_t opcode) {
+//    std::cout << ip_address_.ipv4_numeric() << "->" << dst << std::endl;
   EthernetFrame frame;
   frame.header.src = ethernet_address_;
   frame.header.type = EthernetHeader::TYPE_ARP;
@@ -86,21 +87,25 @@ void NetworkInterface::transmit_ARP(ip32 dst, uint16_t opcode) {
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
   ip32 dst = next_hop.ipv4_numeric();
+//    std::cout << ip_address_.ipv4_numeric() << "->" << dst << std::endl;
+//    std::cout << dgram.header.dst << std::endl;
   if (add_.exist(dst)) {
+//      std::cout << ip_address_.ipv4_numeric() << "->" << dst << std::endl;
     transmit_IPv4(dgram, add_.get(dst));
   } else {
+//      std::cout << ip_address_.ipv4_numeric() << "--->" << dst << std::endl;
+    need_[dst].push(dgram);
     if (!ARP_.exist(dst)) {
       ARP_.update(dst, ethernet_address_);
       transmit_ARP(dst, ARPMessage::OPCODE_REQUEST);
     }
-    need_[dst].push(dgram);
+
   }
 }
 
 //! \param[in] frame the incoming Ethernet frame
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
-  std::cout << "1" << std::endl;
   if (frame.header.dst != ETHERNET_BROADCAST && frame.header.dst != ethernet_address_) {
     return;
   }
@@ -112,6 +117,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     datagrams_received_.push(msg);
   }
   if (frame.header.type == EthernetHeader::TYPE_ARP) {
+//      std::cout << "OK" << ip_address_.ipv4_numeric() << std::endl;
     ARPMessage msg;
     if (!parse(msg, frame.payload)) {
       return;
@@ -122,7 +128,9 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
         transmit_ARP(msg.sender_ip_address, ARPMessage::OPCODE_REPLY);
       }
     }
+//      std::cout << "OK" << ip_address_.ipv4_numeric() << " " << need_[msg.sender_ip_address].size() << std::endl;
     while (!need_[msg.sender_ip_address].empty()) {
+//        std::cout << "OK" << ip_address_.ipv4_numeric() << " " << need_[msg.sender_ip_address].size() << std::endl;
       transmit_IPv4(need_[msg.sender_ip_address].front(), add_.get(msg.sender_ip_address));
       need_[msg.sender_ip_address].pop();
     }
